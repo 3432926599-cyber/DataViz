@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataArt - 数据可视化生成器</title>
+    
+    <!-- 使用国内可访问的资源 -->
+    <!-- 1. 字体：使用本地字体，避免Google Fonts -->
+    <style>
+        @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 300;
+            src: local('Microsoft YaHei Light'), local('PingFang SC Light'), local('Helvetica Neue Light');
+        }
+        
+        @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Microsoft YaHei'), local('PingFang SC'), local('Helvetica Neue');
+        }
+        
+        @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 500;
+            src: local('Microsoft YaHei'), local('PingFang SC Medium'), local('Helvetica Neue Medium');
+        }
+        
+        @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 700;
+            src: local('Microsoft YaHei Bold'), local('PingFang SC Bold'), local('Helvetica Neue Bold');
+        }
+    </style>
+    
+    <style>
+        /* 核心样式提前加载 */
+        :root {
+            --bg-color: #f3f4f6;
+            --sidebar-bg: #1e293b;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-light: #94a3b8;
+            --accent-color: #6366f1;
+            --accent-hover: #4f46e5;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: auto;
+        }
+
+        /* 初始加载状态 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(99, 102, 241, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        /* 左侧侧边栏 */
+        .sidebar {
+            width: 350px;
+            background-color: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        /* 个人IP区域 */
+        .profile-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* 修复：确保头像完全居中 */
+        .avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-color);
+            margin: 0 auto 15px auto; /* 确保水平居中 */
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            transition: transform 0.3s ease;
+            display: block;
+        }
+
+        .avatar:hover {
+            transform: scale(1.05) rotate(5deg);
+        }
+
+        .author-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .author-desc {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            font-weight: 300;
+        }
+
+        /* 表单控制区 */
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        select, textarea, input[type="text"] {
+            width: 100%;
+            background-color: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            font-family: inherit;
+            resize: none;
+            transition: all 0.3s;
+        }
+
+        input[type="text"] {
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        textarea {
+            height: 150px;
+            line-height: 1.5;
+            font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+        }
+
+        select:focus, textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        select option {
+            background-color: #1e293b;
+            color: white;
+            padding: 10px;
+        }
+
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .btn-outline:hover {
+            border-color: white;
+            background-color: rgba(255,255,255,0.05);
+        }
+
+        /* 右侧主内容区 */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            width: 90%;
+            max-width: 900px;
+            height: 80%;
+            padding: 40px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .card-header {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            font-weight: 600;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 12px;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            min-height: 0;
+        }
+
+        /* 水印/版权 */
+        .watermark {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            pointer-events: none;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                padding: 20px;
+            }
+            .main-content {
+                height: 500px;
+                padding: 20px;
+            }
+            .chart-card {
+                height: 100%;
+                width: 100%;
+            }
+        }
+    </style>
+    
+    <!-- Chart.js 异步加载 - 使用国内CDN -->
+    <script>
+        // 资源加载状态跟踪
+        let resourcesLoaded = 0;
+        const totalResources = 1; // 只需要加载Chart.js
+        
+        function resourceLoaded() {
+            resourcesLoaded++;
+            if (resourcesLoaded >= totalResources) {
+                const overlay = document.querySelector('.loading-overlay');
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                    }, 300);
+                }
+            }
+        }
+        
+        // 动态加载 Chart.js - 使用国内CDN
+        function loadChartJS() {
+            if (typeof Chart === 'undefined') {
+                // 尝试多个国内CDN，按优先级
+                const cdnList = [
+                    'https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.js',
+                    'https://cdn.staticfile.org/chart.js/4.4.1/chart.umd.js',
+                    'https://lib.baomitu.com/chart.js/4.4.1/chart.umd.js',
+                    'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.js'
+                ];
+                
+                function tryLoad(index) {
+                    if (index >= cdnList.length) {
+                        console.error('所有CDN都加载失败，使用本地回退方案');
+                        // 可以在这里添加一个提示，让用户手动下载Chart.js
+                        resourceLoaded();
+                        return;
+                    }
+                    
+                    const script = document.createElement('script');
+                    script.src = cdnList[index];
+                    script.onload = function() {
+                        console.log('Chart.js loaded from', cdnList[index]);
+                        resourceLoaded();
+                        if (typeof window.onChartJSLoaded === 'function') {
+                            window.onChartJSLoaded();
+                        }
+                    };
+                    script.onerror = function() {
+                        console.warn('CDN加载失败:', cdnList[index]);
+                        tryLoad(index + 1);
+                    };
+                    document.head.appendChild(script);
+                }
+                
+                tryLoad(0);
+            } else {
+                resourceLoaded();
+            }
+        }
+        
+        // 延迟加载 Chart.js
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置一个小的延迟，让主线程先处理其他任务
+            setTimeout(loadChartJS, 100);
+        });
+    </script>
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载资源...</div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="profile-section">
+             <img src="/DataViz/avatar1.png" 
+                 alt="Author" 
+                 class="avatar" 
+                 id="authorAvatar"
+                 loading="lazy">
+            <h2 class="author-name">Chik.Data</h2>
+            <p class="author-desc">数据可视化&图标导出 | SupersupErChik</p>
+        </div>
+
+        <div class="control-group">
+            <label for="chartType">图表类型 (Chart Type)</label>
+            <select id="chartType">
+                <option value="bar">柱状图 (Bar Chart)</option>
+                <option value="line">折线图 (Line Chart)</option>
+                <option value="pie">饼状图 (Pie Chart)</option>
+                <option value="doughnut">甜甜圈图 (Doughnut)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="chartTitleInput">图表标题 (Title)</label>
+            <input type="text" id="chartTitleInput" value="2024年季度销售数据概览">
+        </div>
+
+        <div class="control-group">
+            <label for="dataInput">数据输入 (格式: 名称,数值)</label>
+            <textarea id="dataInput" placeholder="例如：
+第一季度, 120
+第二季度, 150
+第三季度, 90
+第四季度, 210">第一季度, 120
+第二季度, 150
+第三季度, 180
+第四季度, 240
+年度总结, 300</textarea>
+            <p style="font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 5px;">* 请按行输入，每行用英文逗号分隔名称和数值</p>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="updateChart()">生成图表</button>
+            <button class="btn btn-outline" onclick="downloadChart()">导出图片</button>
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <div class="chart-card">
+            <div class="card-header">
+                <span class="chart-title" id="displayTitle">2024年季度销售数据概览(单位:万)</span>
+                <span style="font-size: 0.8rem; color: #cbd5e1;">SupersupErChik | 可免费无水印导出</span>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="myChart"></canvas>
+            </div>
+
+            <div class="watermark">Designed by Alex.Data</div>
+        </div>
+    </main>
+
+    <script>
+        // 初始化变量
+        let myChart = null;
+        let chartReady = false;
+        
+        // 等待 Chart.js 加载完成
+        window.onChartJSLoaded = function() {
+            chartReady = true;
+            const ctx = document.getElementById('myChart').getContext('2d');
+            initChart(ctx);
+        };
+
+        // 低调含蓄的配色盘 (莫兰迪色系)
+        const colorPalette = [
+            'rgba(99, 102, 241, 0.7)',  // 靛蓝
+            'rgba(244, 63, 94, 0.7)',   // 柔红
+            'rgba(16, 185, 129, 0.7)',  // 翡翠绿
+            'rgba(245, 158, 11, 0.7)',  // 琥珀黄
+            'rgba(139, 92, 246, 0.7)',  // 紫罗兰
+            'rgba(59, 130, 246, 0.7)',  // 天蓝
+            'rgba(236, 72, 153, 0.7)'   // 粉红
+        ];
+
+        const borderPalette = [
+            'rgba(99, 102, 241, 1)',
+            'rgba(244, 63, 94, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(245, 158, 11, 1)',
+            'rgba(139, 92, 246, 1)',
+            'rgba(59, 130, 246, 1)',
+            'rgba(236, 72, 153, 1)'
+        ];
+
+        // 初始化图表函数
+        function initChart(ctx) {
+            // 解析输入数据
+            function parseData() {
+                const rawText = document.getElementById('dataInput').value.trim();
+                const lines = rawText.split('\n');
+                const labels = [];
+                const dataPoints = [];
+
+                lines.forEach(line => {
+                    const parts = line.replace('，', ',').split(',');
+                    if (parts.length >= 2) {
+                        labels.push(parts[0].trim());
+                        const val = parseFloat(parts[1].trim());
+                        dataPoints.push(isNaN(val) ? 0 : val);
+                    }
+                });
+
+                return { labels, dataPoints };
+            }
+
+            // 渲染图表
+            window.updateChart = function() {
+                if (!chartReady) {
+                    alert('图表库正在加载，请稍后重试');
+                    return;
+                }
+                
+                const chartType = document.getElementById('chartType').value;
+                const chartTitle = document.getElementById('chartTitleInput').value;
+                const { labels, dataPoints } = parseData();
+                
+                if (labels.length === 0 || dataPoints.length === 0) {
+                    alert('请输入有效的数据');
+                    return;
+                }
+
+                // 更新显示的标题
+                document.getElementById('displayTitle').innerText = chartTitle;
+
+                // 销毁旧图表
+                if (myChart) {
+                    myChart.destroy();
+                }
+
+                // 图表配置
+                const config = {
+                    type: chartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '数值',
+                            data: dataPoints,
+                            backgroundColor: chartType === 'line' ? 'rgba(99, 102, 241, 0.2)' : colorPalette.slice(0, Math.min(dataPoints.length, colorPalette.length)),
+                            borderColor: chartType === 'line' ? 'rgba(99, 102, 241, 1)' : borderPalette.slice(0, Math.min(dataPoints.length, borderPalette.length)),
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: chartType === 'line',
+                            borderRadius: 6,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    font: {
+                                        family: "'Noto Sans SC', 'Microsoft YaHei', sans-serif"
+                                    }
+                                }
+                            },
+                            title: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                                padding: 12,
+                                cornerRadius: 8,
+                                titleFont: { size: 14 },
+                                bodyFont: { size: 14 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                display: chartType === 'bar' || chartType === 'line',
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0,0,0,0.05)'
+                                },
+                                ticks: {
+                                    font: {
+                                        family: "'Noto Sans SC', 'Microsoft YaHei', sans-serif"
+                                    }
+                                }
+                            },
+                            x: {
+                                display: chartType === 'bar' || chartType === 'line',
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        family: "'Noto Sans SC', 'Microsoft YaHei', sans-serif"
+                                    }
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: 20
+                        }
+                    }
+                };
+
+                // 创建新图表
+                myChart = new Chart(ctx, config);
+            };
+
+            // 导出图片功能 - 修复：包含图表标题
+            window.downloadChart = function() {
+                if (!myChart) {
+                    alert('请先生成图表');
+                    return;
+                }
+                
+                const canvas = document.getElementById('myChart');
+                const chartTitle = document.getElementById('displayTitle').innerText;
+                
+                // 获取原始canvas尺寸
+                const originalWidth = canvas.width;
+                const originalHeight = canvas.height;
+                
+                // 标题高度
+                const titleHeight = 60;
+                
+                // 创建新的canvas，高度增加以容纳标题
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 设置高清画质 (2倍分辨率)
+                const scale = 2;
+                tempCanvas.width = originalWidth * scale;
+                tempCanvas.height = (originalHeight + titleHeight) * scale;
+                
+                // 填充白色背景
+                tempCtx.fillStyle = '#ffffff';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // 绘制标题
+                tempCtx.save();
+                tempCtx.scale(scale, scale);
+                
+                // 设置标题样式
+                tempCtx.fillStyle = '#334155';
+                tempCtx.font = 'bold 20px "Noto Sans SC", "Microsoft YaHei", sans-serif';
+                tempCtx.textAlign = 'center';
+                tempCtx.textBaseline = 'middle';
+                
+                // 绘制标题文本
+                const titleX = tempCanvas.width / (2 * scale);
+                const titleY = titleHeight / 2;
+                tempCtx.fillText(chartTitle, titleX, titleY);
+                
+                // 绘制图表
+                tempCtx.drawImage(canvas, 0, titleHeight, originalWidth, originalHeight);
+                
+                tempCtx.restore();
+
+                // 触发下载
+                const link = document.createElement('a');
+                const timestamp = new Date().getTime();
+                link.download = `chart-${timestamp}.png`;
+                link.href = tempCanvas.toDataURL('image/png', 1.0);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // 页面加载完成后自动生成一次
+            if (chartReady) {
+                setTimeout(() => window.updateChart(), 100);
+            }
+        }
+
+        // 如果 Chart.js 已经加载（回退方案）
+        if (typeof Chart !== 'undefined') {
+            chartReady = true;
+            const ctx = document.getElementById('myChart').getContext('2d');
+            initChart(ctx);
+        }
+        
+        // 添加离线检测
+        window.addEventListener('online', function() {
+            console.log('网络已连接');
+        });
+        
+        window.addEventListener('offline', function() {
+            alert('网络连接已断开，部分功能可能不可用');
+        });
+        
+        // 检测网络状态
+        if (!navigator.onLine) {
+            console.warn('当前处于离线状态');
+        }
+    </script>
+</body>
+</html>
